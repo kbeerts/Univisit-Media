@@ -1,0 +1,798 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Media Navigator</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #111824;
+      --panel2: #0f1621;
+      --text: #e8eef7;
+      --muted: #a9b6c7;
+      --accent: #4ea1ff;
+      --border: rgba(255,255,255,.10);
+      --shadow: 0 10px 30px rgba(0,0,0,.35);
+      --radius: 14px;
+      --font: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font);
+      color: var(--text);
+      background: radial-gradient(1200px 700px at 20% -10%, rgba(78,161,255,.18), transparent 55%),
+                  radial-gradient(900px 600px at 85% 10%, rgba(120, 255, 200,.10), transparent 55%),
+                  var(--bg);
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    header {
+      height: 62px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(10,14,20,.75);
+      backdrop-filter: blur(10px);
+    }
+
+    header .title {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: .2px;
+    }
+    header .subtitle {
+      margin-left: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .app {
+      height: calc(100vh - 62px);
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .sidebar, .main {
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .sidebar-top {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0,0,0,.15);
+    }
+
+    .search {
+      display: flex;
+      gap: 8px;
+    }
+    .search input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      outline: none;
+      background: rgba(0,0,0,.25);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .search input::placeholder { color: rgba(233,240,249,.45); }
+
+    .tree {
+      padding: 10px 8px 14px 8px;
+      overflow: auto;
+      flex: 1;
+    }
+
+    .node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      cursor: pointer;
+      user-select: none;
+      border: 1px solid transparent;
+    }
+    .node:hover {
+      background: rgba(78,161,255,.10);
+      border-color: rgba(78,161,255,.18);
+    }
+    .node.active {
+      background: rgba(78,161,255,.18);
+      border-color: rgba(78,161,255,.35);
+    }
+
+    .node .twisty {
+      width: 18px;
+      height: 18px;
+      display: inline-grid;
+      place-items: center;
+      border-radius: 6px;
+      background: rgba(255,255,255,.05);
+      border: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--muted);
+      flex: 0 0 18px;
+    }
+    .node.leaf .twisty {
+      background: rgba(0,0,0,.12);
+    }
+
+    .node .label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .node .label .name {
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .node .label .meta {
+      font-size: 11px;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .children {
+      margin-left: 18px;
+      padding-left: 10px;
+      border-left: 1px dashed rgba(255,255,255,.12);
+      display: none;
+    }
+    .children.open { display: block; }
+
+    .main {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      min-height: 0;
+    }
+
+    .main-top {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(0,0,0,.12);
+    }
+
+    .breadcrumbs {
+      font-size: 12px;
+      color: var(--muted);
+      max-width: 70ch;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .breadcrumbs b { color: var(--text); font-weight: 700; }
+
+    .nav-buttons {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    button {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(0,0,0,.18);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 650;
+      font-size: 12px;
+    }
+    button:hover { background: rgba(78,161,255,.14); border-color: rgba(78,161,255,.28); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+
+    .viewer {
+      padding: 14px;
+      overflow: auto;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .card {
+      background: rgba(0,0,0,.18);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 8px 22px rgba(0,0,0,.25);
+    }
+
+    .media-wrap {
+      position: relative;
+      background: rgba(0,0,0,.35);
+      display: grid;
+      place-items: center;
+      min-height: 420px;
+    }
+
+    img, video {
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      display: block;
+      background: #000;
+    }
+
+    video { max-height: 70vh; }
+
+    .details {
+      padding: 12px 14px 14px 14px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .details h2 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: .1px;
+    }
+
+    .details .desc {
+      margin: 0;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .details .fileline {
+      font-size: 12px;
+      color: rgba(233,240,249,.75);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .pill {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,.05);
+      color: var(--muted);
+    }
+
+    .main-bottom {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: rgba(0,0,0,.12);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .hint {
+      color: rgba(233,240,249,.65);
+    }
+
+    .empty {
+      padding: 22px;
+      border: 1px dashed rgba(255,255,255,.22);
+      border-radius: var(--radius);
+      background: rgba(0,0,0,.10);
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    kbd {
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.25);
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-size: 11px;
+      color: rgba(233,240,249,.85);
+    }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="title">Media Navigator</div>
+    <div class="subtitle">Screenshots & videos by domain</div>
+  </header>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="search">
+          <input id="searchInput" type="text" placeholder="Search… (e.g., 'kiosk', 'RFID', 'hosting')" />
+        </div>
+      </div>
+      <div id="tree" class="tree"></div>
+    </aside>
+
+    <main class="main">
+      <div class="main-top">
+        <div class="breadcrumbs" id="breadcrumbs">Select an item on the left.</div>
+        <div class="nav-buttons">
+          <button id="btnPrev" disabled>Previous</button>
+          <button id="btnNext" disabled>Next</button>
+          <button id="btnOpen" disabled>Open file</button>
+        </div>
+      </div>
+
+      <div class="viewer" id="viewer">
+        <div class="empty">
+          <div style="margin-bottom:10px;color:rgba(233,240,249,.85);font-weight:700;">How to use</div>
+          <ul style="margin:0;padding-left:18px;">
+            <li>Click a leaf item in the tree to open its media.</li>
+            <li>Use <kbd>↑</kbd>/<kbd>↓</kbd> or <kbd>Previous</kbd>/<kbd>Next</kbd> to browse media items.</li>
+            <li>Replace placeholder filenames in <code>contentTree</code> below.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="main-bottom">
+        <div id="status">0 items loaded.</div>
+        <div class="hint">Tip: put your assets in <b>./media/</b> or change <b>basePath</b>.</div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ====== CONFIG ======
+    // Prefer placing your files in a "media" folder next to this HTML file.
+    const basePath = "./media/";
+
+    // Media types: "image" (jpg/png/webp/svg/gif) or "video" (mp4/webm/ogg)
+    // file: path relative to basePath (or an absolute URL)
+    const contentTree = [
+      {
+        title: "1. Hardware Components",
+        children: [
+          { title: "1.1 Mini-PC", type: "image", file: "hardware/mini-pc_01.png", description: "Placeholder screenshot of Mini-PC." },
+          { title: "1.2 Industrial PC", type: "image", file: "hardware/industrial-pc_01.png", description: "Placeholder screenshot of Industrial PC." },
+          { title: "1.3 Identity Document Scanner", type: "image", file: "hardware/id-scanner_01.png", description: "Placeholder screenshot of identity document scanner." },
+
+          { title: "1.4 QR Scanner", type: "image", file: "hardware/qr-scanner_01.png", description: "Placeholder screenshot of QR scanner." },
+
+          { title: "1.5 Digital Identity Smart Card Reader", type: "image", file: "hardware/smartcard-reader_01.png", description: "Placeholder screenshot of smart card reader." },
+          { title: "1.6 RFID Badge Encoder", type: "image", file: "hardware/rfid-encoder_01.png", description: "Placeholder screenshot of RFID encoder." },
+          { title: "1.7 RFID Badge Printer", type: "image", file: "hardware/rfid-printer_01.png", description: "Placeholder screenshot of badge printer." },
+          { title: "1.8 RFID Badge Dispenser", type: "image", file: "hardware/badge-dispenser_01.png", description: "Placeholder screenshot of badge dispenser." },
+          { title: "1.9 RFID Badge Dispenser/Collector", type: "image", file: "hardware/badge-dispenser-collector_01.png", description: "Placeholder screenshot of dispenser/collector." }
+        ]
+      },
+      {
+        title: "2. Kiosk Flow Examples",
+        children: [
+          { title: "2.1 Home Screen", type: "image", file: "kiosk/01_home.png", description: "Placeholder home screen." },
+          { title: "2.2 Language Selection", type: "image", file: "kiosk/02_language.png", description: "Placeholder language selection." },
+          { title: "2.3 Tenant Selection", type: "image", file: "kiosk/03_tenant.png", description: "Placeholder tenant selection." },
+          { title: "2.4 Visitor / Employee / Contractor Selection", type: "image", file: "kiosk/04_user-type.png", description: "Placeholder user type selection." },
+          { title: "2.5 Identity Check Selection", type: "image", file: "kiosk/05_identity-check.png", description: "Placeholder identity check selection." },
+          { title: "2.6 Self-Service Menu", type: "image", file: "kiosk/06_self-service.png", description: "Placeholder self-service menu." },
+          { title: "2.7 Replacement Badge", type: "image", file: "kiosk/07_replacement-badge.png", description: "Placeholder replacement badge flow." }
+        ]
+      },
+      {
+        title: "3. Mobile Web Application",
+        children: [
+          { title: "3.1 Cardholder Onboarding", type: "image", file: "mobile/01_onboarding.png", description: "Placeholder screenshot of onboarding flow." },
+          { title: "3.2 Cardholder Mobile Web", type: "image", file: "mobile/02_mobile_web.png", description: "Placeholder screenshot of mobile web." }
+        ]
+      },
+      {
+        title: "4. Multi-tenant Cardholder Provisioning",
+        type: "image",
+        file: "provisioning/multi-tenant-provisioning.png",
+        description: "Placeholder screenshot of provisioning overview."
+      },
+      {
+        title: "5. PIAM Portal",
+        children: [
+          { title: "5.0 Partner Integration", type: "image", file: "piam-portal/00_accessplanner.png", description: "Placeholder portal accessplanner." },
+          { title: "5.1 Administration", type: "image", file: "piam-portal/01_administration.png", description: "Placeholder portal administration." },
+          { title: "5.2 Authorization", type: "image", file: "piam-portal/02_authorization.png", description: "Placeholder authorization." },
+          { title: "5.3 Reservations", type: "image", file: "piam-portal/03_reservations.png", description: "Placeholder reservations." },
+          { title: "5.4 Visitors & Meetings Scheduling", type: "image", file: "piam-portal/04_scheduling.png", description: "Placeholder scheduling." },
+          { title: "5.5 Visitors & Meetings Inviting", type: "image", file: "piam-portal/05_inviting.png", description: "Placeholder inviting." },
+          { title: "5.6 Authorization Request", type: "image", file: "piam-portal/06_auth-request.png", description: "Placeholder authorization request." },
+          { title: "5.7 Authorization Approval", type: "image", file: "piam-portal/07_auth-approval.png", description: "Placeholder authorization approval." }
+        ]
+      },
+      {
+        title: "6. Architecture",
+        type: "image",
+        file: "architecture/overview.png",
+        description: "Placeholder architecture overview."
+      },
+      {
+        title: "7. Hosting Options",
+        type: "image",
+        file: "hosting/options.png",
+        description: "Placeholder hosting options."
+      },
+      {
+        title: "8. PIAM HR Integration",
+        type: "image",
+        file: "hr-integration/piam-hr-integration.png",
+        description: "Placeholder HR integration flow."
+      },
+      {
+        title: "9. Videos",
+        children: [
+          { title: "9.1 Univisit Pro Kiosk", type: "video", file: "videos/09_01_univisit-pro-kiosk.mp4", description: "Placeholder video: Univisit Pro Kiosk." },
+          { title: "9.2 HR onboarding and badge printing", type: "video", file: "videos/09_02_hr-onboarding-badge-printing.mp4", description: "Placeholder video: HR onboarding and badge printing." },
+          { title: "9.3 Visitor Arrival with Smart Card Identity Check", type: "video", file: "videos/09_03_visitor-arrival-smartcard-id-check.mp4", description: "Placeholder video: Visitor arrival with smart card identity check." },
+          { title: "9.4 Change On-Card Information (PIN code / Biometrics)", type: "video", file: "videos/09_04_change-on-card-info.mp4", description: "Placeholder video: Change on-card information (PIN code / biometrics)." },
+          { title: "9.5 QR Code Forgotten", type: "video", file: "videos/09_05_qr-code-forgotten.mp4", description: "Placeholder video: flow when a user has forgotten their QR code." },
+          { title: "9.6 Extra Qualification", type: "video", file: "videos/09_06_extra-qualification.mp4", description: "Placeholder video: extra qualification flow." }
+        ]
+      }
+    ];
+
+    // ====== APP STATE ======
+    const state = {
+      nodesById: new Map(),
+      leafIds: [],
+      activeId: null,
+      filter: ""
+    };
+
+    // ====== UTIL ======
+    function makeId() {
+      return Math.random().toString(16).slice(2) + Date.now().toString(16);
+    }
+
+    function isLeaf(node) {
+      return !!node.type && !!node.file;
+    }
+
+    function fullPath(file) {
+      if (/^https?:\/\//i.test(file)) return file;
+      return basePath + file;
+    }
+
+    function flattenTree(rootNodes) {
+      state.nodesById.clear();
+      state.leafIds = [];
+
+      function walk(node, parentId, pathTitles) {
+        const id = makeId();
+        const path = [...pathTitles, node.title];
+        const record = {
+          id,
+          parentId,
+          title: node.title,
+          description: node.description || "",
+          type: node.type || null,
+          file: node.file || null,
+          children: [],
+          path
+        };
+        state.nodesById.set(id, record);
+
+        if (node.children && Array.isArray(node.children)) {
+          for (const child of node.children) {
+            const childId = walk(child, id, path);
+            record.children.push(childId);
+          }
+        } else if (isLeaf(node)) {
+          state.leafIds.push(id);
+        }
+
+        return id;
+      }
+
+      const topIds = [];
+      for (const n of rootNodes) {
+        topIds.push(walk(n, null, []));
+      }
+      return topIds;
+    }
+
+    function matchesFilter(record, filter) {
+      if (!filter) return true;
+      const f = filter.toLowerCase();
+      const hay = (record.title + " " + (record.description || "") + " " + (record.file || "")).toLowerCase();
+      return hay.includes(f);
+    }
+
+    function computeVisibleSet(topIds, filter) {
+      const visible = new Set();
+
+      function dfs(id) {
+        const node = state.nodesById.get(id);
+        if (!node) return false;
+
+        let selfMatch = matchesFilter(node, filter);
+        let childMatch = false;
+
+        for (const cid of node.children) {
+          if (dfs(cid)) childMatch = true;
+        }
+
+        const show = selfMatch || childMatch;
+        if (show) visible.add(id);
+        return show;
+      }
+
+      for (const tid of topIds) dfs(tid);
+      return visible;
+    }
+
+    // ====== RENDER TREE ======
+    function renderTree(topIds) {
+      const treeEl = document.getElementById("tree");
+      treeEl.innerHTML = "";
+
+      const visible = computeVisibleSet(topIds, state.filter);
+
+      function renderNode(id, container) {
+        if (!visible.has(id)) return;
+
+        const node = state.nodesById.get(id);
+        const hasChildren = node.children.length > 0;
+        const leaf = isLeaf(node);
+
+        const row = document.createElement("div");
+        row.className = "node" + (leaf ? " leaf" : "") + (state.activeId === id ? " active" : "");
+        row.dataset.id = id;
+
+        const twisty = document.createElement("div");
+        twisty.className = "twisty";
+        twisty.textContent = hasChildren ? "▸" : "•";
+
+        const label = document.createElement("div");
+        label.className = "label";
+
+        const name = document.createElement("div");
+        name.className = "name";
+        name.textContent = node.title;
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        if (leaf) {
+          meta.textContent = `${node.type.toUpperCase()} • ${node.file}`;
+        } else {
+          meta.textContent = hasChildren ? `${node.children.length} items` : "";
+        }
+
+        label.appendChild(name);
+        label.appendChild(meta);
+
+        row.appendChild(twisty);
+        row.appendChild(label);
+
+        container.appendChild(row);
+
+        const childrenWrap = document.createElement("div");
+        childrenWrap.className = "children";
+        childrenWrap.dataset.parent = id;
+
+        container.appendChild(childrenWrap);
+
+        // Default open when searching so matches are visible
+        if (hasChildren && state.filter) {
+          childrenWrap.classList.add("open");
+          twisty.textContent = "▾";
+        }
+
+        row.addEventListener("click", () => {
+          const currentId = row.dataset.id;
+          const current = state.nodesById.get(currentId);
+
+          setActive(currentId);
+
+          if (current.children.length > 0) {
+            const wrap = treeEl.querySelector(`.children[data-parent="${currentId}"]`);
+            if (wrap) {
+              const willOpen = !wrap.classList.contains("open");
+              wrap.classList.toggle("open", willOpen);
+              twisty.textContent = willOpen ? "▾" : "▸";
+            }
+          }
+        });
+
+        if (hasChildren) {
+          for (const cid of node.children) {
+            renderNode(cid, childrenWrap);
+          }
+        }
+      }
+
+      for (const tid of topIds) {
+        renderNode(tid, treeEl);
+      }
+
+      updateStatus();
+    }
+
+    // ====== VIEWER ======
+    function setActive(id) {
+      state.activeId = id;
+      renderTree(window.__TOP_IDS__);
+
+      const node = state.nodesById.get(id);
+      const bc = document.getElementById("breadcrumbs");
+      const path = node.path || [node.title];
+      const prefix = path.slice(0, -1).join("  /  ");
+      const last = path[path.length - 1];
+      bc.innerHTML = (prefix ? `${escapeHtml(prefix)}  /  ` : "") + `<b>${escapeHtml(last)}</b>`;
+
+      if (isLeaf(node)) {
+        renderViewer(node);
+      } else {
+        renderNonLeaf(node);
+      }
+
+      updateNavButtons();
+    }
+
+    function renderNonLeaf(node) {
+      const viewer = document.getElementById("viewer");
+      viewer.innerHTML = `
+        <div class="empty">
+          <div style="margin-bottom:10px;color:rgba(233,240,249,.85);font-weight:700;">${escapeHtml(node.title)}</div>
+          <div>This is a category. Select a child item with media (image/video) to view it.</div>
+        </div>
+      `;
+      document.getElementById("btnOpen").disabled = true;
+    }
+
+    function renderViewer(node) {
+      const viewer = document.getElementById("viewer");
+      const src = fullPath(node.file);
+      const kind = node.type;
+
+      let mediaHtml = "";
+      if (kind === "image") {
+        mediaHtml = `<img src="${escapeAttr(src)}" alt="${escapeAttr(node.title)}" loading="lazy" />`;
+      } else if (kind === "video") {
+        mediaHtml = `
+          <video src="${escapeAttr(src)}" controls preload="metadata" loop>
+            Your browser does not support this video.
+          </video>
+        `;
+      } else {
+        mediaHtml = `<div style="padding:18px;color:var(--muted);">Unknown type: ${escapeHtml(kind)}</div>`;
+      }
+
+      viewer.innerHTML = `
+        <div class="card">
+          <div class="media-wrap">${mediaHtml}</div>
+          <div class="details">
+            <h2>${escapeHtml(node.title)}</h2>
+            <p class="desc">${escapeHtml(node.description || "")}</p>
+            <div class="fileline">
+              <span class="pill">${escapeHtml((node.type || "").toUpperCase())}</span>
+              <span class="pill">${escapeHtml(node.file || "")}</span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      const btnOpen = document.getElementById("btnOpen");
+      btnOpen.disabled = false;
+      btnOpen.onclick = () => window.open(src, "_blank", "noopener,noreferrer");
+    }
+
+    function updateStatus() {
+      const status = document.getElementById("status");
+      status.textContent = `${state.leafIds.length} media items available.`;
+    }
+
+    function updateNavButtons() {
+      const prev = document.getElementById("btnPrev");
+      const next = document.getElementById("btnNext");
+
+      const activeIndex = state.leafIds.indexOf(state.activeId);
+      const isOnLeaf = activeIndex !== -1;
+
+      prev.disabled = !isOnLeaf || activeIndex === 0;
+      next.disabled = !isOnLeaf || activeIndex === state.leafIds.length - 1;
+
+      prev.onclick = () => {
+        const i = state.leafIds.indexOf(state.activeId);
+        if (i > 0) setActive(state.leafIds[i - 1]);
+      };
+      next.onclick = () => {
+        const i = state.leafIds.indexOf(state.activeId);
+        if (i >= 0 && i < state.leafIds.length - 1) setActive(state.leafIds[i + 1]);
+      };
+    }
+
+    // ====== SEARCH ======
+    function wireSearch(topIds) {
+      const input = document.getElementById("searchInput");
+      input.addEventListener("input", () => {
+        state.filter = input.value.trim();
+        renderTree(topIds);
+
+        if (state.activeId && !computeVisibleSet(topIds, state.filter).has(state.activeId)) {
+          state.activeId = null;
+          document.getElementById("breadcrumbs").textContent = "Select an item on the left.";
+          document.getElementById("viewer").innerHTML = `
+            <div class="empty">
+              <div style="margin-bottom:10px;color:rgba(233,240,249,.85);font-weight:700;">No selection</div>
+              <div>Search or click in the tree to open media.</div>
+            </div>
+          `;
+          document.getElementById("btnOpen").disabled = true;
+          updateNavButtons();
+        }
+      });
+    }
+
+    // ====== KEYBOARD NAV ======
+    function wireKeyboardNav() {
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "ArrowUp") {
+          const i = state.leafIds.indexOf(state.activeId);
+          if (i > 0) setActive(state.leafIds[i - 1]);
+        } else if (e.key === "ArrowDown") {
+          const i = state.leafIds.indexOf(state.activeId);
+          if (i >= 0 && i < state.leafIds.length - 1) setActive(state.leafIds[i + 1]);
+        }
+      });
+    }
+
+    // ====== ESCAPING ======
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+    function escapeAttr(s) {
+      return escapeHtml(s).replaceAll("`", "&#096;");
+    }
+
+    // ====== INIT ======
+    (function init() {
+      const topIds = flattenTree(contentTree);
+      window.__TOP_IDS__ = topIds;
+
+      renderTree(topIds);
+      wireSearch(topIds);
+      wireKeyboardNav();
+
+      // Auto-select first leaf
+      if (state.leafIds.length > 0) {
+        setActive(state.leafIds[0]);
+      } else {
+        updateNavButtons();
+      }
+    })();
+  </script>
+</body>
+</html>
